@@ -1197,10 +1197,12 @@ int anx7625_init(uint8_t bus)
 
 int anx7625_wait_hpd_event(uint8_t bus)
 {
+    ANXINFO("Waiting for hdmi hot plug event...\n");
+
     int retry_hpd_change = 5000;
     while (--retry_hpd_change)
     {
-        mdelay(10);
+        mdelay(1);
         int detected = anx7625_hpd_change_detect(bus);
         if (detected < 0)
             return -1;

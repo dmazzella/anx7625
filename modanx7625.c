@@ -157,13 +157,20 @@ STATIC mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
     anx7625_obj->framebuffer1 = framebuffer1;
     anx7625_obj->timeout = timeout;
 
+    /* video on */
     mp_hal_pin_config(mp_hal_get_pin_obj(anx7625_obj->pin_video_on_obj), MP_HAL_PIN_MODE_OUTPUT, MP_HAL_PIN_PULL_NONE, 0);
     mp_hal_pin_config_speed(mp_hal_get_pin_obj(anx7625_obj->pin_video_on_obj), MP_HAL_PIN_SPEED_HIGH);
     mp_hal_pin_low(mp_hal_get_pin_obj(anx7625_obj->pin_video_on_obj));
 
+    /* video rst */
     mp_hal_pin_config(mp_hal_get_pin_obj(anx7625_obj->pin_video_rst_obj), MP_HAL_PIN_MODE_OUTPUT, MP_HAL_PIN_PULL_NONE, 0);
     mp_hal_pin_config_speed(mp_hal_get_pin_obj(anx7625_obj->pin_video_rst_obj), MP_HAL_PIN_SPEED_HIGH);
     mp_hal_pin_low(mp_hal_get_pin_obj(anx7625_obj->pin_video_rst_obj));
+
+    /* otg on */
+    mp_hal_pin_config(mp_hal_get_pin_obj(anx7625_obj->pin_otg_on_obj), MP_HAL_PIN_MODE_OUTPUT, MP_HAL_PIN_PULL_NONE, 0);
+    mp_hal_pin_config_speed(mp_hal_get_pin_obj(anx7625_obj->pin_otg_on_obj), MP_HAL_PIN_SPEED_HIGH);
+    mp_hal_pin_low(mp_hal_get_pin_obj(anx7625_obj->pin_otg_on_obj));
 
     mp_hal_pin_config(mp_hal_get_pin_obj(anx7625_obj->pin_otg_on_obj), MP_HAL_PIN_MODE_INPUT, MP_HAL_PIN_PULL_UP, 0);
     mp_hal_pin_config_speed(mp_hal_get_pin_obj(anx7625_obj->pin_otg_on_obj), MP_HAL_PIN_SPEED_HIGH);

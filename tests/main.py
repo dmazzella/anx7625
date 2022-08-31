@@ -17,6 +17,8 @@ if __name__ == "__main__":
     fbuf0 = framebuf.FrameBuffer(buf0, w, h, framebuf.RGB565)
     fbuf1 = framebuf.FrameBuffer(buf1, w, h, framebuf.RGB565)
 
+    print(i2c)
+
     anx = _anx7625.ANX7625(
         i2c,
         video_on,

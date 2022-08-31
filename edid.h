@@ -16,13 +16,18 @@
 #include "pin.h"
 #include "extmod/machine_i2c.h"
 
+// static inline int printf0(const char *fmt, ...)
+// {
+//     return 0;
+// }
+
 #define u8 uint8_t
 #define u16 uint16_t
 #define u32 uint32_t
 #define printk(x, ...) printf(__VA_ARGS__)
 #define console_log_level(x) (1)
 #define CONFIG(x) (0)
-#define mdelay(x) mp_hal_delay_ms(x)
+#define mdelay(x) mp_hal_delay_us(x * 1000)
 #define die(...)
 #ifndef MAX
 #define MAX(a, b) (((a) > (b)) ? (a) : (b)) /*!< Return the maximum of the 2 values     */
