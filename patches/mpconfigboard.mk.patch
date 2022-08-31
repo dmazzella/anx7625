@@ -1,0 +1,9 @@
+diff --git a/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.mk b/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.mk
+index e5b48d064..0b32c7a31 100644
+--- a/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.mk
++++ b/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.mk
+@@ -25,3 +25,4 @@ MICROPY_PY_USSL = 1
+ MICROPY_SSL_MBEDTLS = 1
+ 
+ FROZEN_MANIFEST = $(BOARD_DIR)/manifest.py
++USER_C_MODULES ?= $(BOARD_DIR)/modules

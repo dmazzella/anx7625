@@ -1,0 +1,23 @@
+diff --git a/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.h b/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.h
+index 31e19c9eb..9e719dc3f 100644
+--- a/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.h
++++ b/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.h
+@@ -159,6 +159,9 @@ extern struct _spi_bdev_t spi_bdev;
+ #define MICROPY_HW_UART7_CTS        (pyb_pin_BT_CTS)
+ 
+ // I2C busses
++#define MICROPY_HW_I2C1_SCL         (pin_B6)
++#define MICROPY_HW_I2C1_SDA         (pin_B7)
++
+ #define MICROPY_HW_I2C3_SCL         (pin_H7)
+ #define MICROPY_HW_I2C3_SDA         (pin_H8)
+ 
+@@ -220,6 +223,8 @@ extern struct _spi_bdev_t spi_bdev;
+ #define MICROPY_HW_SDRAM_SIZE               (64 / 8 * 1024 * 1024)  // 64 Mbit
+ #define MICROPY_HW_SDRAM_STARTUP_TEST       (1)
+ #define MICROPY_HW_SDRAM_TEST_FAIL_ON_ERROR (true)
++#define MICROPY_HEAP_START                  ((sdram_valid) ? sdram_start() : &_heap_start)
++#define MICROPY_HEAP_END                    ((sdram_valid) ? sdram_end() : &_heap_end)
+ 
+ // Timing configuration for 200MHz/2=100MHz (10ns)
+ #define MICROPY_HW_SDRAM_CLOCK_PERIOD       2
