@@ -80,9 +80,9 @@ static int manufacturer_name(unsigned char *x, char *output)
     output[2] = (x[1] & 0x1F) + '@';
     output[3] = 0;
 
-    if (isupper((uint8_t)output[0]) &&
-        isupper((uint8_t)output[1]) &&
-        isupper((uint8_t)output[2]))
+    if (isupper(output[0]) &&
+        isupper(output[1]) &&
+        isupper(output[2]))
         return 1;
 
     memset(output, 0, 4);
@@ -286,7 +286,6 @@ detailed_block(struct edid *result_edid, unsigned char *x, int in_extension,
                    extract_string(x + 5,
                                   &c->has_valid_string_termination,
                                   EDID_ASCII_STRING_LENGTH));
-            c->has_name_descriptor = 1;
             return 1;
         case 0xFD:
         {
@@ -468,7 +467,7 @@ detailed_block(struct edid *result_edid, unsigned char *x, int in_extension,
 
             /*
              * Slightly weird to return a global, but I've never
-             * seen any EDID block with two range descriptors, so
+             * seen any EDID block wth two range descriptors, so
              * it's harmless.
              */
             return 1;
@@ -502,6 +501,14 @@ detailed_block(struct edid *result_edid, unsigned char *x, int in_extension,
     if (c->seen_non_detailed_descriptor && !in_extension)
         c->has_valid_descriptor_ordering = 0;
 
+    bool supported = true;
+    if ((x[0] + (x[1] << 8)) * 10 > 62500)
+    {
+        supported = false;
+        printk(BIOS_SPEW,
+               "Not supported on stm32\n");
+    }
+
     /* Edid contains pixel clock in terms of 10KHz */
     out->mode.pixel_clock = (x[0] + (x[1] << 8)) * 10;
     /*
@@ -516,7 +523,7 @@ detailed_block(struct edid *result_edid, unsigned char *x, int in_extension,
       We have no samples between those values, so put a
       threshold at 95000 kHz. If we get anything over
       95000 kHz with single channel, we can make this
-      more sophisticated but it's currently not needed.
+      more sofisticated but it's currently not needed.
      */
     out->mode.lvds_dual_channel = (out->mode.pixel_clock >= 95000);
     extra_info.x_mm = (x[12] + ((x[14] & 0xF0) << 4));
@@ -537,10 +544,10 @@ detailed_block(struct edid *result_edid, unsigned char *x, int in_extension,
      * another call to edid_set_framebuffer_bits_per_pixel(). As a cheap
      * heuristic, assume that X86 systems require a 64-byte row alignment
      * (since that seems to be true for most Intel chipsets). */
-    if (false /* ENV_X86 */)
+    if (CONFIG(ARCH_X86))
         edid_set_framebuffer_bits_per_pixel(out, 32, 64);
     else
-        edid_set_framebuffer_bits_per_pixel(out, 32, 0);
+        edid_set_framebuffer_bits_per_pixel(out, 16, 0);
 
     switch ((x[17] & 0x18) >> 3)
     {
@@ -588,7 +595,7 @@ detailed_block(struct edid *result_edid, unsigned char *x, int in_extension,
            "Detailed mode (IN HEX): Clock %d KHz, %x mm x %x mm\n"
            "               %04x %04x %04x %04x hborder %x\n"
            "               %04x %04x %04x %04x vborder %x\n"
-           "               %chsync %cvsync%s%s%s\n",
+           "               %chsync %cvsync%s%s %s\n",
            out->mode.pixel_clock,
            extra_info.x_mm,
            extra_info.y_mm,
@@ -602,7 +609,7 @@ detailed_block(struct edid *result_edid, unsigned char *x, int in_extension,
            extra_info.syncmethod, x[17] & 0x80 ? " interlaced" : "",
            extra_info.stereo);
 
-    if (!c->did_detailed_timing)
+    if (!c->did_detailed_timing && supported)
     {
         printk(BIOS_SPEW, "Did detailed timing\n");
         c->did_detailed_timing = 1;
@@ -1163,7 +1170,7 @@ int set_display_mode(struct edid *edid, enum edid_modes mode)
 }
 
 /*
- * Given a raw edid block, decode it into a form
+ * Given a raw edid bloc, decode it into a form
  * that other parts of coreboot can use -- mainly
  * graphics bringup functions. The raw block is
  * required to be 128 bytes long, per the standard,
@@ -1185,6 +1192,8 @@ int decode_edid(unsigned char *edid, int size, struct edid *out)
         .conformant = EDID_CONFORMANT,
     };
 
+    memset(out, 0, sizeof(*out));
+
     if (!edid)
     {
         printk(BIOS_ERR, "No EDID found\n");
@@ -1198,8 +1207,6 @@ int decode_edid(unsigned char *edid, int size, struct edid *out)
         printk(BIOS_ERR, "No header found\n");
         return EDID_ABSENT;
     }
-
-    memset(out, 0, sizeof(*out));
 
     if (manufacturer_name(edid + 0x08, out->manufacturer_name))
         c.manufacturer_name_well_formed = 1;
@@ -1623,7 +1630,7 @@ int decode_edid(unsigned char *edid, int size, struct edid *out)
             printk(BIOS_ERR,
                    "EDID block does NOT conform to EDID 1.3!\n");
         else if (!c.has_name_descriptor || !c.has_range_descriptor)
-            printk(BIOS_WARNING, "EDID block does NOT "
+            printk(BIOS_WARNING, "WARNING: EDID block does NOT "
                                  "fully conform to EDID 1.3.\n");
 
         if (c.nonconformant_digital_display)

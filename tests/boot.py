@@ -11,19 +11,19 @@ pyb.country("US")  # ISO 3166-1 Alpha-2 code, eg US, GB, DE, AU
 # pyb.usb_mode('VCP+MSC') # act as a serial and a storage device
 # pyb.usb_mode('VCP+HID') # act as a serial device and a mouse
 
-# filename = "/flash/cnt.txt"
-# counter = 0
-# try:
-#     os.stat(filename)
-#     with open(filename, "b+") as fd:
-#         counter = int.from_bytes(fd.read(), "little")
-#         if counter < 5:
-#             fd.write(int.to_bytes(counter + 1, 1, "little"))
-# except OSError:
-#     with open(filename, "wb") as fd:
-#         fd.write(int.to_bytes(counter, 1, "little"))
+filename = "/flash/cnt.txt"
+counter = 0
+try:
+    os.stat(filename)
+    with open(filename, "b+") as fd:
+        counter = int.from_bytes(fd.read(), "little")
+        if counter < 5:
+            fd.write(int.to_bytes(counter + 1, 1, "little"))
+except OSError:
+    with open(filename, "wb") as fd:
+        fd.write(int.to_bytes(counter, 1, "little"))
 
-# if counter < 5:
-#     pyb.usb_mode(None)
-# else:
-#     pyb.usb_mode("VCP+MSC")
+if counter < 5:
+    pyb.usb_mode(msc=())
+else:
+    pyb.usb_mode("VCP+MSC")
