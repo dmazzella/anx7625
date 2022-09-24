@@ -45,7 +45,7 @@
 #include "anx7625.h"
 #include "image.h"
 
-STATIC mp_obj_type_t mp_anx7625_type;
+const mp_obj_type_t mp_anx7625_type;
 mp_anx7625_t anx7625_object = {0};
 mp_anx7625_t *anx7625_obj = &anx7625_object;
 
@@ -56,7 +56,7 @@ STATIC bool mp_obj_is_machine_i2c(mp_obj_t i2c)
     {
         return false;
     }
-    const mp_machine_i2c_p_t *i2c_p = i2c_type->protocol;
+    const mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t *)MP_OBJ_TYPE_GET_SLOT(i2c_type, protocol);
     return (i2c_p != NULL && i2c_p->transfer != NULL);
 }
 
@@ -200,12 +200,12 @@ STATIC mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
     return MP_OBJ_FROM_PTR(anx7625_obj);
 }
 
-STATIC mp_obj_type_t mp_anx7625_type = {
-    {&mp_type_type},
-    .name = MP_QSTR_ANX7625,
-    .locals_dict = (void *)&mp_anx7625_locals_dict,
-    .make_new = mp_anx7625_make_new,
-};
+MP_DEFINE_CONST_OBJ_TYPE(
+    mp_anx7625_type,
+    MP_QSTR_ANX7625,
+    MP_TYPE_FLAG_NONE,
+    make_new, mp_anx7625_make_new,
+    locals_dict, &mp_anx7625_locals_dict);
 
 STATIC const mp_rom_map_elem_t mp_module_anx7625_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR__anx7625)},

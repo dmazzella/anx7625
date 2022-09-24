@@ -22,7 +22,7 @@ extern mp_anx7625_t *anx7625_obj;
 
 int readfrom_(mp_obj_base_t *self, uint16_t addr, uint8_t *dest, size_t len, bool stop)
 {
-    mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t *)self->type->protocol;
+    mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t *)MP_OBJ_TYPE_GET_SLOT(self->type, protocol);
     mp_machine_i2c_buf_t buf = {.len = len, .buf = dest};
     unsigned int flags = MP_MACHINE_I2C_FLAG_READ | (stop ? MP_MACHINE_I2C_FLAG_STOP : 0);
     return i2c_p->transfer(self, addr, 1, &buf, flags);
@@ -30,7 +30,7 @@ int readfrom_(mp_obj_base_t *self, uint16_t addr, uint8_t *dest, size_t len, boo
 
 int writeto_(mp_obj_base_t *self, uint16_t addr, const uint8_t *src, size_t len, bool stop)
 {
-    mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t *)self->type->protocol;
+    mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t *)MP_OBJ_TYPE_GET_SLOT(self->type, protocol);
     mp_machine_i2c_buf_t buf = {.len = len, .buf = (uint8_t *)src};
     unsigned int flags = stop ? MP_MACHINE_I2C_FLAG_STOP : 0;
     return i2c_p->transfer(self, addr, 1, &buf, flags);
@@ -74,7 +74,7 @@ int write_mem_(mp_obj_t self_in, uint16_t addr, uint32_t memaddr, uint8_t addrsi
     };
 
     // Do I2C transfer
-    mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t *)self->type->protocol;
+    mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t *)MP_OBJ_TYPE_GET_SLOT(self->type, protocol);
     return i2c_p->transfer(self, addr, 2, bufs, MP_MACHINE_I2C_FLAG_STOP);
 }
 
