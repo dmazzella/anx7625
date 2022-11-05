@@ -13,13 +13,6 @@
 
 extern mp_anx7625_t *anx7625_obj;
 
-#define ANXERROR(format, ...) \
-    printk(BIOS_ERR, "E: %s: " format, __func__, ##__VA_ARGS__)
-#define ANXINFO(format, ...) \
-    printk(BIOS_INFO, "I: %s: " format, __func__, ##__VA_ARGS__)
-#define ANXDEBUG(format, ...) \
-    printk(BIOS_DEBUG, "D: %s: " format, __func__, ##__VA_ARGS__)
-
 int readfrom_(mp_obj_base_t *self, uint16_t addr, uint8_t *dest, size_t len, bool stop)
 {
     mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t *)MP_OBJ_TYPE_GET_SLOT(self->type, protocol);
@@ -177,7 +170,7 @@ static int i2c_access_workaround(uint8_t bus, uint8_t saddr)
 
     ret = i2c_writeb(bus, saddr, offset, 0x00);
     if (ret < 0)
-        ANXERROR("Failed to access %#x:%#x\n", saddr, offset);
+        ANXERROR("Failed to access %02x:%02x\n", saddr, offset);
     return ret;
 }
 
@@ -190,7 +183,7 @@ static int anx7625_reg_read(uint8_t bus, uint8_t saddr, uint8_t offset,
     ret = i2c_readb(bus, saddr, offset, val);
     if (ret < 0)
     {
-        ANXERROR("Failed to read i2c reg=%#x:%#x\n", saddr, offset);
+        ANXERROR("Failed to read i2c reg=%02x:%02x\n", saddr, offset);
         return ret;
     }
     return *val;
@@ -204,7 +197,7 @@ static int anx7625_reg_block_read(uint8_t bus, uint8_t saddr, uint8_t reg_addr,
     i2c_access_workaround(bus, saddr);
     ret = i2c_read_bytes(bus, saddr, reg_addr, buf, len);
     if (ret < 0)
-        ANXERROR("Failed to read i2c block=%#x:%#x[len=%#x]\n", saddr,
+        ANXERROR("Failed to read i2c block=%02x:%02x[len=%02x]\n", saddr,
                  reg_addr, len);
     return ret;
 }
@@ -217,7 +210,7 @@ static int anx7625_reg_write(uint8_t bus, uint8_t saddr, uint8_t reg_addr,
     i2c_access_workaround(bus, saddr);
     ret = i2c_writeb(bus, saddr, reg_addr, reg_val);
     if (ret < 0)
-        ANXERROR("Failed to write i2c id=%#x:%#x\n", saddr, reg_addr);
+        ANXERROR("Failed to write i2c id=%02x:%02x\n", saddr, reg_addr);
 
     return ret;
 }
@@ -953,7 +946,7 @@ static int anx7625_hpd_change_detect(uint8_t bus)
 
     if (status & HPD_STATUS)
     {
-        ANXINFO("HPD event received 0x7e:0x45=%#x\n", status);
+        ANXINFO("HPD event received 0x7e:0x45=%02x\n", status);
         anx7625_start_dp_work(bus);
         return 1;
     }
@@ -1178,7 +1171,7 @@ int anx7625_wait_hpd_event(uint8_t bus)
 {
     ANXINFO("Waiting for hdmi hot plug event...\n");
 
-    int retry_hpd_change = 5000;
+    int retry_hpd_change = 10000;
     while (--retry_hpd_change)
     {
         mdelay(10);

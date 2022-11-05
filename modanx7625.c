@@ -77,9 +77,13 @@ STATIC mp_obj_t mp_anx7625_poll(mp_obj_t self_obj)
     mp_anx7625_t *self = MP_OBJ_TO_PTR(self_obj);
     (void)self;
 
-    int offset;
-    offset = ((stm32_getXSize() - 300)) + (stm32_getXSize() * (stm32_getYSize() - 300) / 2) * sizeof(uint16_t);
-    stm32_LCD_DrawImage((void *)texture_raw, (void *)(getNextFrameBuffer() + offset), 300, 300, DMA2D_INPUT_RGB565);
+    stm32_LCD_Clear(0x255);
+
+    ANXDEBUG("X: %ld Y: %ld\n", stm32_getXSize(), stm32_getYSize());
+
+    // int offset;
+    // offset = ((stm32_getXSize() - 300)) + (stm32_getXSize() * (stm32_getYSize() - 300) / 2) * sizeof(uint16_t);
+    // stm32_LCD_DrawImage((void *)texture_raw, (void *)(getNextFrameBuffer() + offset), 300, 300, DMA2D_INPUT_RGB565);
 
     return mp_const_none;
 }
@@ -187,11 +191,7 @@ STATIC mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
     }
 
     struct edid recognized_edid = {0};
-    if ((ret = anx7625_dp_get_edid(0, &recognized_edid)) < 0)
-    {
-        mp_raise_TypeError(MP_ERROR_TEXT("anx7625_dp_get_edid failed."));
-    }
-
+    anx7625_dp_get_edid(0, &recognized_edid);
     if ((ret = anx7625_dp_start(0, &recognized_edid, anx7625_obj->mode, anx7625_obj->framebuffer0, anx7625_obj->framebuffer1)) < 0)
     {
         mp_raise_TypeError(MP_ERROR_TEXT("anx7625_dp_start failed."));

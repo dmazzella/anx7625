@@ -11,6 +11,14 @@
 #define LOG_TAG "anx7625dp"
 #endif
 
+#define ANXERROR(format, ...) \
+    printk(BIOS_ERR, "E: %s: " format, __func__, ##__VA_ARGS__)
+#define ANXINFO(format, ...) \
+    printk(BIOS_INFO, "I: %s: " format, __func__, ##__VA_ARGS__)
+#define ANXDEBUG(format, ...) \
+    printk(BIOS_DEBUG, "D: %s: " format, __func__, ##__VA_ARGS__)
+
+
 #define ANX7625_DRV_VERSION "0.1.04"
 
 /* Loading OCM re-trying times */
