@@ -60,30 +60,18 @@ STATIC bool mp_obj_is_machine_i2c(mp_obj_t i2c)
     return (i2c_p != NULL && i2c_p->transfer != NULL);
 }
 
-#if 0
-STATIC bool mp_obj_is_framebuffer(mp_obj_t fb)
-{
-    const mp_obj_type_t *fb_type = mp_obj_get_type(fb);
-    if (fb_type->name != MP_QSTR_framebuf)
-    {
-        return false;
-    }
-    return true;
-}
-#endif
-
 STATIC mp_obj_t mp_anx7625_poll(mp_obj_t self_obj)
 {
     mp_anx7625_t *self = MP_OBJ_TO_PTR(self_obj);
     (void)self;
-
-    stm32_LCD_Clear(0x255);
 
     ANXDEBUG("X: %ld Y: %ld\n", stm32_getXSize(), stm32_getYSize());
 
     // int offset;
     // offset = ((stm32_getXSize() - 300)) + (stm32_getXSize() * (stm32_getYSize() - 300) / 2) * sizeof(uint16_t);
     // stm32_LCD_DrawImage((void *)texture_raw, (void *)(getNextFrameBuffer() + offset), 300, 300, DMA2D_INPUT_RGB565);
+
+    stm32_LCD_DrawImage((void *)texture_raw, NULL, 300, 300, DMA2D_INPUT_RGB565);
 
     return mp_const_none;
 }
@@ -144,10 +132,8 @@ STATIC mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
     mp_int_t mode = args[ARG_mode].u_int;
 
     mp_int_t framebuffer0 = args[ARG_framebuffer0].u_int;
-    printf("framebuffer0 : %d\n", framebuffer0);
 
     mp_int_t framebuffer1 = args[ARG_framebuffer1].u_int;
-    printf("framebuffer1 : %d\n", framebuffer1);
 
     mp_int_t timeout = args[ARG_timeout].u_int;
 
