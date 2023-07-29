@@ -1,63 +1,75 @@
 import _anx7625
 
-import io
-import os
 import framebuf
 import machine
-import ctypes
+import asyncio
 
 
-W = 640
-H = 480
+async def anx_task(anx):
+    while True:
+
+        # anx.begin()
+
+        # # create M-logo
+        # mlogo = framebuf.FrameBuffer(anx.buffer, anx.width, anx.height, framebuf.RGB565)
+        # mlogo.fill(0x3433)
+        # mlogo.fill_rect(1, 1, 15, 15, 0xFFFF)
+        # mlogo.vline(4, 4, 12, 0)
+        # mlogo.vline(8, 1, 12, 0)
+        # mlogo.vline(12, 4, 12, 0)
+        # mlogo.vline(14, 13, 2, 0)
+
+        # anx.end()
+
+        await asyncio.sleep(0.5)
 
 
-class DUP(io.IOBase):
-    def __init__(self, s):
-        self.s = s
-
-    def write(self, data):
-        self.s += data
-        return len(data)
-
-    def readinto(self, data):
-        return 0
-
-
-if __name__ == "__main__":
-
-    i2c = machine.I2C(1)
+async def main():
+    i2c = machine.I2C(1, freq=200_000)
     video_on = machine.Pin.cpu.K2
     video_rst = machine.Pin.cpu.J3
     otg_on = machine.Pin.cpu.J6
-    mode = _anx7625.MODE_640x480_60Hz
-    buf0 = bytearray(W * H * 2)
-    buf1 = bytearray(W * H * 2)
-    fbuf0 = framebuf.FrameBuffer(buf0, W, H, framebuf.RGB565)
-    fbuf1 = framebuf.FrameBuffer(buf1, W, H, framebuf.RGB565)
+    mode = _anx7625.MODE_720x480_60Hz
+    width = 720
+    height = 480
+    buffer = bytearray(width * height * 2)
 
-    s = bytearray()
-    dup = DUP(s)
-    os.dupterm(dup)
+    anx = _anx7625.ANX7625(
+        i2c,
+        video_on,
+        video_rst,
+        otg_on,
+        mode,
+        buffer,
+        width=width,
+        height=height,
+    )
 
-    print(i2c)
+    anx.begin()
+    fbuf = framebuf.FrameBuffer(anx.buffer, anx.width, anx.height, framebuf.RGB565)
+    fbuf.fill(0x3433)
+
+    fbuf.text("ANX7625 Micropython porting", 80, 20, 0xFFFF)
+    fbuf.rect(80, 40, 60, 60, 0xECAE, True)
+    for i in range(5):
+        fbuf.rect(80 + i * 30, 40 + i * 20, 60, 60, 0xECAE, True)
+
+    fbuf.fill_rect(1, 1, 15, 15, 0xFFFF)
+    fbuf.vline(4, 4, 12, 0)
+    fbuf.vline(8, 1, 12, 0)
+    fbuf.vline(12, 4, 12, 0)
+    fbuf.vline(14, 13, 2, 0)
+
+    # anx.show()
+    anx.end()
+
+    await asyncio.gather(
+        asyncio.create_task(anx_task(anx)),
+    )
+
+
+if __name__ == "__main__":
     try:
-        anx = _anx7625.ANX7625(
-            i2c,
-            video_on,
-            video_rst,
-            otg_on,
-            mode,
-            ctypes.addressof(buf0),
-            ctypes.addressof(buf1),
-        )
-        print(anx)
-        with open("output.txt", "a+b") as f:
-            f.write(bytes(dup.s))
-
-        while True:
-            anx.poll()
-    except:
-        with open("error.txt", "a+b") as f:
-            f.write(bytes(dup.s))
-
-    os.dupterm(None)
+        asyncio.run(main())
+    finally:
+        asyncio.new_event_loop()

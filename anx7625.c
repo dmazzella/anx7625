@@ -5,12 +5,6 @@
 #include "edid.h"
 #include "anx7625.h"
 
-// #include <types.h>
-// #include <delay.h>
-// #include <device/i2c_simple.h>
-// #include <gpio.h>
-// #include <console/console.h>
-
 extern mp_anx7625_t *anx7625_obj;
 
 int readfrom_(mp_obj_base_t *self, uint16_t addr, uint8_t *dest, size_t len, bool stop)
@@ -1061,7 +1055,7 @@ static struct envie_edid_mode envie_known_modes[NUM_KNOWN_MODES] = {
     },
 };
 
-int anx7625_dp_start(uint8_t bus, const struct edid *edid, enum edid_modes mode, uint32_t fb_address_0, uint32_t fb_address_1)
+int anx7625_dp_start(uint8_t bus, const struct edid *edid, enum edid_modes mode, uint32_t fb_address)
 {
     int ret;
     struct display_timing dt;
@@ -1080,14 +1074,13 @@ int anx7625_dp_start(uint8_t bus, const struct edid *edid, enum edid_modes mode,
 
         dt.vactive = envie_known_modes[mode].vactive;
         dt.vsync_len = envie_known_modes[mode].vsync_len;
-        ;
         dt.vback_porch = envie_known_modes[mode].vback_porch;
         dt.vfront_porch = envie_known_modes[mode].vfront_porch;
         dt.hpol = envie_known_modes[mode].hpol;
         dt.vpol = envie_known_modes[mode].vpol;
     }
 
-    stm32_dsi_config(bus, (struct edid *)edid, &dt, fb_address_0, fb_address_1);
+    config(bus, (struct edid *)edid, &dt, fb_address);
 
     ret = anx7625_dsi_config(bus, &dt);
     if (ret < 0)
@@ -1238,16 +1231,22 @@ bool anx7625_is_power_provider(uint8_t bus)
     }
 }
 
-static uint32_t lcd_x_size = 1280;
-static uint32_t lcd_y_size = 1024;
+#define LCD_MAX_X_SIZE 1280
+#define LCD_MAX_Y_SIZE 1024
+#define BYTES_PER_PIXEL 2
+
+static uint32_t lcd_x_size = LCD_MAX_X_SIZE;
+static uint32_t lcd_y_size = LCD_MAX_Y_SIZE;
 static uint32_t framebuffer_address_0 = -1;
 static uint32_t framebuffer_address_1 = -1;
+static uint32_t pend_buffer = 0;
+volatile uint32_t reloadLTDC_status = 0;
 
 static DMA2D_HandleTypeDef dma2d = {0};
 static LTDC_HandleTypeDef ltdc = {0};
 static DSI_HandleTypeDef dsi = {0};
 
-static void stm32_LayerInit(uint16_t LayerIndex, uint32_t FB_Address)
+static void LayerInit(uint16_t LayerIndex, uint32_t FB_Address)
 {
     LTDC_LayerCfgTypeDef Layercfg;
 
@@ -1271,12 +1270,8 @@ static void stm32_LayerInit(uint16_t LayerIndex, uint32_t FB_Address)
     HAL_LTDC_ConfigLayer(&ltdc, &Layercfg, LayerIndex);
 }
 
-int stm32_dsi_config(uint8_t bus, struct edid *edid, struct display_timing *dt, uint32_t fb_address_0, uint32_t fb_address_1)
+int config(uint8_t bus, struct edid *edid, struct display_timing *dt, uint32_t fb_address)
 {
-
-    framebuffer_address_0 = fb_address_0;
-    framebuffer_address_1 = fb_address_1;
-
     static const uint32_t DSI_PLLNDIV = 40;
     static const uint32_t DSI_PLLIDF = DSI_PLL_IN_DIV2;
     static const uint32_t DSI_PLLODF = DSI_PLL_OUT_DIV1;
@@ -1299,6 +1294,9 @@ int stm32_dsi_config(uint8_t bus, struct edid *edid, struct display_timing *dt, 
 
     lcd_x_size = dt->hactive;
     lcd_y_size = dt->vactive;
+
+    framebuffer_address_0 = fb_address;
+    framebuffer_address_1 = fb_address + (lcd_x_size * lcd_y_size * BYTES_PER_PIXEL);
 
     DSI_PLLInitTypeDef dsiPllInit;
     DSI_PHY_TimerTypeDef dsiPhyInit;
@@ -1466,14 +1464,18 @@ int stm32_dsi_config(uint8_t bus, struct edid *edid, struct display_timing *dt, 
     /* Enable the DSI host and wrapper : but LTDC is not started yet at this stage */
     HAL_DSI_Start(&dsi);
 
-    stm32_LayerInit(0, fb_address_0);
-    stm32_LayerInit(1, fb_address_1);
+    LayerInit(0, fb_address);
+    LayerInit(1, fb_address + (lcd_x_size * lcd_y_size * BYTES_PER_PIXEL));
 
     HAL_DSI_PatternGeneratorStart(&dsi, 0, 1);
     HAL_DSI_PatternGeneratorStop(&dsi);
 
-    stm32_LCD_Clear(0);
-    stm32_LCD_Clear(0);
+    Clear(0);
+    drawCurrentFrameBuffer();
+    // getNextFrameBuffer();
+    Clear(0);
+    drawCurrentFrameBuffer();
+    // getNextFrameBuffer();
 
     return 0;
 }
@@ -1501,47 +1503,68 @@ static void LL_FillBuffer(uint32_t LayerIndex, void *pDst, uint32_t xSize, uint3
     }
 }
 
-DMA2D_HandleTypeDef *stm32_get_DMA2D(void)
+DMA2D_HandleTypeDef *get_DMA2D(void)
 {
     return &dma2d;
 }
 
-uint32_t getNextFrameBuffer()
+void drawCurrentFrameBuffer(void)
 {
+    int fb = pend_buffer++ % 2;
 
-    int fb = 0;
-
+    /* Enable current LTDC layer */
     __HAL_LTDC_LAYER_ENABLE(&(ltdc), fb);
+    /* Disable active LTDC layer */
     __HAL_LTDC_LAYER_DISABLE(&(ltdc), !fb);
-    __HAL_LTDC_VERTICAL_BLANKING_RELOAD_CONFIG(&(ltdc));
 
-    return fb ? framebuffer_address_0 : framebuffer_address_1;
+    /* LTDC reload request within next vertical blanking */
+    reloadLTDC_status = 0;
+    HAL_LTDC_Reload(&ltdc, LTDC_SRCR_VBR);
+
+    while (reloadLTDC_status == 0)
+    {
+        /* Wait till reload takes effect */
+        mdelay(1);
+    }
 }
 
-uint32_t stm32_getXSize()
+uint32_t getCurrentFrameBuffer()
+{
+    return (ltdc.LayerCfg[pend_buffer % 2].FBStartAdress);
+}
+
+uint32_t getActiveFrameBuffer()
+{
+    return (ltdc.LayerCfg[(pend_buffer + 1) % 2].FBStartAdress);
+}
+
+uint32_t getXSize()
 {
     return lcd_x_size;
 }
 
-uint32_t stm32_getYSize()
+uint32_t getYSize()
 {
     return lcd_y_size;
 }
 
-void stm32_LCD_Clear(uint32_t Color)
+void Clear(uint32_t Color)
 {
     /* Clear the LCD */
-    LL_FillBuffer(0, (uint32_t *)(ltdc.LayerCfg[0].FBStartAdress), lcd_x_size, lcd_y_size, 0, Color);
-    getNextFrameBuffer();
+    LL_FillBuffer(pend_buffer % 2, (uint32_t *)(ltdc.LayerCfg[pend_buffer % 2].FBStartAdress), lcd_x_size, lcd_y_size, 0, Color);
 }
 
-void stm32_LCD_FillArea(void *pDst, uint32_t xSize, uint32_t ySize, uint32_t ColorMode)
+void FillArea(void *pDst, uint32_t xSize, uint32_t ySize, uint32_t ColorMode)
 {
-    LL_FillBuffer(0, pDst, xSize, ySize, lcd_x_size - xSize, ColorMode);
+    LL_FillBuffer(pend_buffer % 2, pDst, xSize, ySize, lcd_x_size - xSize, ColorMode);
 }
 
-void stm32_LCD_DrawImage(void *pSrc, void *pDst, uint32_t xSize, uint32_t ySize, uint32_t ColorMode)
+void DrawImage(void *pSrc, void *pDst, uint32_t xSize, uint32_t ySize, uint32_t ColorMode)
 {
+#if defined(__CORTEX_M7)
+    SCB_CleanInvalidateDCache();
+    SCB_InvalidateICache();
+#endif
     /* Configure the DMA2D Mode, Color Mode and output offset */
     dma2d.Init.Mode = DMA2D_M2M_PFC;
     dma2d.Init.ColorMode = DMA2D_OUTPUT_RGB565;
@@ -1549,7 +1572,7 @@ void stm32_LCD_DrawImage(void *pSrc, void *pDst, uint32_t xSize, uint32_t ySize,
 
     if (pDst == NULL)
     {
-        pDst = (uint32_t *)(ltdc.LayerCfg[0].FBStartAdress);
+        pDst = (uint32_t *)(ltdc.LayerCfg[pend_buffer % 2].FBStartAdress);
     }
 
     /* Foreground Configuration */
@@ -1572,4 +1595,16 @@ void stm32_LCD_DrawImage(void *pSrc, void *pDst, uint32_t xSize, uint32_t ySize,
             }
         }
     }
+}
+
+/* Handler for LTDC global interrupt request */
+void LTDC_IRQHandler(void)
+{
+    HAL_LTDC_IRQHandler(&ltdc);
+}
+
+/* Reload LTDC event callback */
+void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc)
+{
+    reloadLTDC_status = 1;
 }

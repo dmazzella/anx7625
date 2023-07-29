@@ -18,7 +18,6 @@
 #define ANXDEBUG(format, ...) \
     printk(BIOS_DEBUG, "D: %s: " format, __func__, ##__VA_ARGS__)
 
-
 #define ANX7625_DRV_VERSION "0.1.04"
 
 /* Loading OCM re-trying times */
@@ -367,20 +366,23 @@ struct display_timing
     unsigned int vpol : 1;
 };
 
-int anx7625_dp_start(uint8_t bus, const struct edid *edid, enum edid_modes mode, uint32_t fb_address_0, uint32_t fb_address_1);
+int anx7625_dp_start(uint8_t bus, const struct edid *edid, enum edid_modes mode, uint32_t fb_address);
 int anx7625_dp_get_edid(uint8_t bus, struct edid *out);
 int anx7625_init(uint8_t bus);
 int anx7625_read_system_status(uint8_t bus, uint8_t *sys_status);
 bool anx7625_is_power_provider(uint8_t bus);
 int anx7625_wait_hpd_event(uint8_t bus);
-int stm32_dsi_config(uint8_t bus, struct edid *edid, struct display_timing *dt, uint32_t fb_address_0, uint32_t fb_address_1);
-void stm32_LCD_Clear(uint32_t color);
-void stm32_LCD_DrawImage(void *pSrc, void *pDst, uint32_t xSize, uint32_t ySize, uint32_t ColorMode);
-void stm32_LCD_FillArea(void *pDst, uint32_t xSize, uint32_t ySize, uint32_t ColorMode);
+int config(uint8_t bus, struct edid *edid, struct display_timing *dt, uint32_t fb_address);
+void Clear(uint32_t color);
+void DrawImage(void *pSrc, void *pDst, uint32_t xSize, uint32_t ySize, uint32_t ColorMode);
+void FillArea(void *pDst, uint32_t xSize, uint32_t ySize, uint32_t ColorMode);
 uint32_t getNextFrameBuffer();
-uint32_t stm32_getXSize();
-uint32_t stm32_getYSize();
-uint32_t getFramebufferEnd();
+uint32_t getXSize();
+uint32_t getYSize();
+// uint32_t getFramebufferEnd();
+void drawCurrentFrameBuffer();
+uint32_t getCurrentFrameBuffer();
+uint32_t getActiveFrameBuffer();
 
 typedef struct _mp_anx7625_t
 {
@@ -390,9 +392,11 @@ typedef struct _mp_anx7625_t
     mp_obj_t pin_video_rst_obj;
     mp_obj_t pin_otg_on_obj;
     int32_t mode;
-    int32_t framebuffer0;
-    int32_t framebuffer1;
+    mp_obj_t buffer_obj;
+    int32_t buffer_address;
     int32_t timeout;
+    int32_t width;
+    int32_t height;
 } mp_anx7625_t;
 
 #endif /* __ANX7625_H__ */
