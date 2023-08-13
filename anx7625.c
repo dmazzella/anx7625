@@ -1464,18 +1464,17 @@ int config(uint8_t bus, struct edid *edid, struct display_timing *dt, uint32_t f
     /* Enable the DSI host and wrapper : but LTDC is not started yet at this stage */
     HAL_DSI_Start(&dsi);
 
+    HAL_DSI_Refresh(&dsi);
+
     LayerInit(0, fb_address);
     LayerInit(1, fb_address + (lcd_x_size * lcd_y_size * BYTES_PER_PIXEL));
 
-    HAL_DSI_PatternGeneratorStart(&dsi, 0, 1);
     HAL_DSI_PatternGeneratorStop(&dsi);
 
     Clear(0);
     drawCurrentFrameBuffer();
-    // getNextFrameBuffer();
     Clear(0);
     drawCurrentFrameBuffer();
-    // getNextFrameBuffer();
 
     return 0;
 }
@@ -1576,8 +1575,8 @@ void DrawImage(void *pSrc, void *pDst, uint32_t xSize, uint32_t ySize, uint32_t 
     }
 
     /* Foreground Configuration */
-    dma2d.LayerCfg[1].AlphaMode = DMA2D_NO_MODIF_ALPHA;
-    dma2d.LayerCfg[1].InputAlpha = 0xFF;
+    dma2d.LayerCfg[1].AlphaMode = DMA2D_REPLACE_ALPHA;
+    dma2d.LayerCfg[1].InputAlpha = 0x00;
     dma2d.LayerCfg[1].InputColorMode = ColorMode;
     dma2d.LayerCfg[1].InputOffset = 0;
 

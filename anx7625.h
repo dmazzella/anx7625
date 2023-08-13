@@ -397,6 +397,7 @@ typedef struct _mp_anx7625_t
     int32_t timeout;
     int32_t width;
     int32_t height;
+    int32_t background_color;
 } mp_anx7625_t;
 
 #endif /* __ANX7625_H__ */

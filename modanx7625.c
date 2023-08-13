@@ -59,30 +59,60 @@ STATIC bool mp_obj_is_machine_i2c(mp_obj_t i2c)
     return (i2c_p != NULL && i2c_p->transfer != NULL);
 }
 
-STATIC mp_obj_t mp_anx7625_show(mp_obj_t self_obj)
+STATIC mp_obj_t mp_anx7625_image(size_t n_args, const mp_obj_t *args, mp_map_t *kw_args)
 {
-    mp_anx7625_t *self = MP_OBJ_TO_PTR(self_obj);
-    DrawImage((void *)self->buffer_address, (void *)getCurrentFrameBuffer(), anx7625_obj->width, anx7625_obj->height, DMA2D_INPUT_RGB565);
-    return mp_const_none;
-}
+    enum
+    {
+        ARG_buffer,
+        ARG_width,
+        ARG_height,
+    };
+    static const mp_arg_t allowed_args[] = {
+        {MP_QSTR_buffer, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL}},
+        {MP_QSTR_width, MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 0}},
+        {MP_QSTR_height, MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 0}},
+    };
 
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_anx7625_show_obj, mp_anx7625_show);
-
-STATIC mp_obj_t mp_anx7625_begin(mp_obj_t self_obj)
-{
-    mp_anx7625_t *self = MP_OBJ_TO_PTR(self_obj);
+    mp_anx7625_t *self = MP_OBJ_TO_PTR(args[0]);
     (void)self;
-    Clear(0);
+
+    mp_arg_val_t vals[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args - 1, args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, vals);
+
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(vals[ARG_buffer].u_obj, &bufinfo, MP_BUFFER_RW);
+
+    mp_int_t width = vals[ARG_width].u_int;
+
+    mp_int_t height = vals[ARG_height].u_int;
+
+    mp_int_t buffer_address = (uintptr_t)bufinfo.buf;
+
+    DrawImage((void *)buffer_address, (void *)getActiveFrameBuffer(), (width ? width : self->width), (height ? height : self->height), DMA2D_INPUT_RGB565);
     return mp_const_none;
 }
 
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_anx7625_begin_obj, mp_anx7625_begin);
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mp_anx7625_image_obj, 1, mp_anx7625_image);
+
+STATIC mp_obj_t mp_anx7625_begin(size_t n_args, const mp_obj_t *args)
+{
+    mp_anx7625_t *self = MP_OBJ_TO_PTR(args[0]);
+    (void)self;
+
+    if (n_args == 2)
+    {
+        self->background_color = mp_obj_get_int(args[1]);
+    }
+    Clear(self->background_color);
+    return mp_const_none;
+}
+
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_anx7625_begin_obj, 1, 2, mp_anx7625_begin);
 
 STATIC mp_obj_t mp_anx7625_end(mp_obj_t self_obj)
 {
     mp_anx7625_t *self = MP_OBJ_TO_PTR(self_obj);
     (void)self;
-    DrawImage((void *)self->buffer_address, (void *)getActiveFrameBuffer(), anx7625_obj->width, anx7625_obj->height, DMA2D_INPUT_RGB565);
     drawCurrentFrameBuffer();
     return mp_const_none;
 }
@@ -92,7 +122,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_anx7625_end_obj, mp_anx7625_end);
 STATIC const mp_rom_map_elem_t mp_anx7625_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_begin), MP_ROM_PTR(&mp_anx7625_begin_obj)},
     {MP_ROM_QSTR(MP_QSTR_end), MP_ROM_PTR(&mp_anx7625_end_obj)},
-    {MP_ROM_QSTR(MP_QSTR_show), MP_ROM_PTR(&mp_anx7625_show_obj)},
+    {MP_ROM_QSTR(MP_QSTR_image), MP_ROM_PTR(&mp_anx7625_image_obj)},
     {MP_ROM_QSTR(MP_QSTR_buffer), MP_ROM_PTR(mp_const_none)},
     {MP_ROM_QSTR(MP_QSTR_width), MP_ROM_PTR(mp_const_none)},
     {MP_ROM_QSTR(MP_QSTR_height), MP_ROM_PTR(mp_const_none)},
@@ -115,6 +145,7 @@ STATIC mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
         ARG_width,
         ARG_height,
         ARG_timeout,
+        ARG_background_color,
     };
 
     static const mp_arg_t allowed_args[] = {
@@ -127,6 +158,7 @@ STATIC mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
         {MP_QSTR_width, MP_ARG_INT | MP_ARG_KW_ONLY, {.u_int = 640}},
         {MP_QSTR_height, MP_ARG_INT | MP_ARG_KW_ONLY, {.u_int = 480}},
         {MP_QSTR_timeout, MP_ARG_INT | MP_ARG_KW_ONLY, {.u_int = 500}},
+        {MP_QSTR_background_color, MP_ARG_INT | MP_ARG_KW_ONLY, {.u_int = 0}},
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -162,6 +194,8 @@ STATIC mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
 
     mp_int_t timeout = args[ARG_timeout].u_int;
 
+    mp_int_t background_color = args[ARG_background_color].u_int;
+
     anx7625_obj->base.type = &mp_anx7625_type;
     anx7625_obj->i2c_obj = i2c_obj;
     anx7625_obj->pin_video_on_obj = pin_video_on_obj;
@@ -173,6 +207,7 @@ STATIC mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
     anx7625_obj->width = width;
     anx7625_obj->height = height;
     anx7625_obj->timeout = timeout;
+    anx7625_obj->background_color = background_color;
 
     /* video on */
     mp_hal_pin_config(mp_hal_get_pin_obj(anx7625_obj->pin_video_on_obj), MP_HAL_PIN_MODE_OUTPUT, MP_HAL_PIN_PULL_NONE, 0);
