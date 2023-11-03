@@ -40,7 +40,7 @@
 #include "py/objstr.h"
 #include "py/objint.h"
 #include "pin.h"
-#include "extmod/machine_i2c.h"
+#include "extmod/modmachine.h"
 
 #include "anx7625.h"
 
