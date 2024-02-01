@@ -26,14 +26,7 @@ def main():
     buffer = bytearray(width * height * 2)
 
     anx = _anx7625.ANX7625(
-        i2c,
-        video_on,
-        video_rst,
-        otg_on,
-        mode,
-        buffer,
-        width=width,
-        height=height
+        i2c, video_on, video_rst, otg_on, mode, buffer, width=width, height=height
     )
 
     fbuf = framebuf.FrameBuffer(anx.buffer, anx.width, anx.height, framebuf.RGB565)
@@ -60,8 +53,6 @@ def main():
         fbuf.vline(14, 13, 2, 0)
 
 
-
 if __name__ == "__main__":
     main()
-
 ```
