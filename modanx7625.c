@@ -94,7 +94,7 @@ STATIC mp_obj_t mp_anx7625_image(size_t n_args, const mp_obj_t *args, mp_map_t *
 
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mp_anx7625_image_obj, 1, mp_anx7625_image);
 
-STATIC mp_obj_t mp_anx7625_begin(size_t n_args, const mp_obj_t *args)
+STATIC mp_obj_t mp_anx7625_clear(size_t n_args, const mp_obj_t *args)
 {
     mp_anx7625_t *self = MP_OBJ_TO_PTR(args[0]);
     (void)self;
@@ -107,9 +107,9 @@ STATIC mp_obj_t mp_anx7625_begin(size_t n_args, const mp_obj_t *args)
     return mp_const_none;
 }
 
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_anx7625_begin_obj, 1, 2, mp_anx7625_begin);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_anx7625_clear_obj, 1, 2, mp_anx7625_clear);
 
-STATIC mp_obj_t mp_anx7625_end(mp_obj_t self_obj)
+STATIC mp_obj_t mp_anx7625_flush(mp_obj_t self_obj)
 {
     mp_anx7625_t *self = MP_OBJ_TO_PTR(self_obj);
     (void)self;
@@ -117,11 +117,11 @@ STATIC mp_obj_t mp_anx7625_end(mp_obj_t self_obj)
     return mp_const_none;
 }
 
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_anx7625_end_obj, mp_anx7625_end);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_anx7625_flush_obj, mp_anx7625_flush);
 
 STATIC const mp_rom_map_elem_t mp_anx7625_locals_dict_table[] = {
-    {MP_ROM_QSTR(MP_QSTR_begin), MP_ROM_PTR(&mp_anx7625_begin_obj)},
-    {MP_ROM_QSTR(MP_QSTR_end), MP_ROM_PTR(&mp_anx7625_end_obj)},
+    {MP_ROM_QSTR(MP_QSTR_clear), MP_ROM_PTR(&mp_anx7625_clear_obj)},
+    {MP_ROM_QSTR(MP_QSTR_flush), MP_ROM_PTR(&mp_anx7625_flush_obj)},
     {MP_ROM_QSTR(MP_QSTR_image), MP_ROM_PTR(&mp_anx7625_image_obj)},
     {MP_ROM_QSTR(MP_QSTR_buffer), MP_ROM_PTR(mp_const_none)},
     {MP_ROM_QSTR(MP_QSTR_width), MP_ROM_PTR(mp_const_none)},
@@ -244,6 +244,9 @@ STATIC mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
     {
         mp_raise_TypeError(MP_ERROR_TEXT("anx7625_dp_start failed."));
     }
+
+    Clear(0);
+    drawCurrentFrameBuffer();
 
     return MP_OBJ_FROM_PTR(anx7625_obj);
 }
