@@ -86,7 +86,7 @@ micropython$ git clone https://github.com/dmazzella/anx7625.git usercmodule/anx7
 micropython$ git apply usercmodule/anx7625/patches/mpconfigboard.h.patch
 micropython$ git apply usercmodule/anx7625/patches/stm32h7xx_hal_conf.h.patch
 micropython$ make -j2 -C mpy-cross/
-micropython$ make -C ports/stm32 BOARD=ARDUINO_PORTENTA_H7 USER_C_MODULES="$(pwd)/usercmodule/"
+micropython$ make -C ports/stm32 BOARD=ARDUINO_PORTENTA_H7 USER_C_MODULES="$(pwd)/usercmodule"
 ```
 
 # Example
