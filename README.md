@@ -7,9 +7,6 @@
 
 > [!IMPORTANT]
 > Currently needs patches to the files
-> - `ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.h`
-> - `ports/stm32/boards/ARDUINO_PORTENTA_H7/stm32h7xx_hal_conf.h`.
-
 
 <details><summary><b>ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.h</b></summary>
 <p>
@@ -78,6 +75,8 @@ index 737a2e5b0..339130ac6 100644
 
 </p>
 </details>
+
+## Build
 
 ```bash
 $ git clone https://github.com/micropython/micropython.git
