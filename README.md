@@ -3,6 +3,32 @@
 > [!WARNING] 
 > Working in progress, help are welcome!
 
+## How to build
+
+> [!IMPORTANT]
+> Currently needs a patch to the file `/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.h` to enable all its functionality.
+
+<details><summary><b>Diff</b></summary>
+<p>
+
+```diff
+diff --git a/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.h b/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.h
+index ace63e016..e8216c994 100644
+--- a/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.h
++++ b/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.h
+@@ -240,6 +240,8 @@ extern struct _spi_bdev_t spi_bdev;
+ #define MICROPY_HW_SDRAM_SIZE               (64 / 8 * 1024 * 1024)  // 64 Mbit
+ #define MICROPY_HW_SDRAM_STARTUP_TEST       (1)
+ #define MICROPY_HW_SDRAM_TEST_FAIL_ON_ERROR (true)
++#define MICROPY_HEAP_START                  ((sdram_valid) ? sdram_start() : &_heap_start)
++#define MICROPY_HEAP_END                    ((sdram_valid) ? sdram_end() : &_heap_end)
+ 
+ // Timing configuration for 200MHz/2=100MHz (10ns)
+ #define MICROPY_HW_SDRAM_CLOCK_PERIOD       2
+```
+</p>
+</details>
+
 # Example
 
 ![alt Screen](https://github.com/dmazzella/anx7625/blob/main/tests/main.png?raw=true)
