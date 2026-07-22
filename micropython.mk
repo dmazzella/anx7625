@@ -6,6 +6,7 @@ CFLAGS_USERMOD += -I$(MOD_ANX7625_DIR)
 SRC_USERMOD += $(MOD_ANX7625_DIR)/modanx7625.c
 SRC_USERMOD += $(MOD_ANX7625_DIR)/anx7625.c
 SRC_USERMOD += $(MOD_ANX7625_DIR)/edid.c
+SRC_USERMOD += $(MOD_ANX7625_DIR)/video_modes.c
 
 HAL_SRC_C += $(addprefix $(STM32LIB_HAL_BASE)/Src/stm32$(MCU_SERIES)xx_,\
 	hal_ltdc.c \

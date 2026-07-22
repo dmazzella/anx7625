@@ -4,6 +4,7 @@
 
 #include "edid.h"
 #include "anx7625.h"
+#include "video_modes.h"
 
 extern mp_anx7625_t *anx7625_obj;
 
@@ -972,103 +973,10 @@ static void anx7625_parse_edid(const struct edid *edid,
             dt->vactive, dt->vsync_len, dt->vfront_porch, dt->vback_porch);
 }
 
-static struct envie_edid_mode envie_known_modes[NUM_KNOWN_MODES] = {
-    [EDID_MODE_640x480_60Hz] = {
-        .name = "640x480@75Hz",
-        .pixel_clock = 29400,
-        .refresh = 60,
-        .hactive = 640,
-        .hback_porch = 160,
-        .hfront_porch = 16,
-        .hsync_len = 96,
-        .vactive = 480,
-        .vback_porch = 45,
-        .vfront_porch = 10,
-        .vsync_len = 2,
-    },
-    [EDID_MODE_720x480_60Hz] = {
-        .name = "720x480@60Hz",
-        .pixel_clock = 27800,
-        .refresh = 60,
-        .hactive = 720,
-        .hback_porch = 60,
-        .hfront_porch = 16,
-        .hsync_len = 62,
-        .vactive = 480,
-        .vback_porch = 45,
-        .vfront_porch = 9,
-        .vsync_len = 6,
-    },
-    [EDID_MODE_480x800_60Hz] = {
-        .name = "480x800@60Hz",
-        .pixel_clock = 38000,
-        .refresh = 60,
-        .hactive = 480,
-        .hback_porch = 30,
-        .hfront_porch = 320,
-        .hsync_len = 24,
-        .vactive = 800,
-        .vback_porch = 50,
-        .vfront_porch = 20,
-        .vsync_len = 4,
-        .hpol = 1,
-        .vpol = 1,
-    },
-    [EDID_MODE_800x600_59Hz] = {
-        .name = "800x600@60Hz",
-        .pixel_clock = 37800,
-        .refresh = 60,
-        .hactive = 800,
-        .hback_porch = 104,
-        .hfront_porch = 24,
-        .hsync_len = 80,
-        .vactive = 600,
-        .vback_porch = 17,
-        .vfront_porch = 3,
-        .vsync_len = 4,
-    },
-    [EDID_MODE_1024x768_60Hz] = {
-        .name = "1024x768@60Hz",
-        .pixel_clock = 57800,
-        .refresh = 60,
-        .hactive = 1024,
-        .hback_porch = 80,
-        .hfront_porch = 24,
-        .hsync_len = 68,
-        .hpol = 0,
-        .vactive = 768,
-        .vback_porch = 29,
-        .vfront_porch = 3,
-        .vsync_len = 6,
-        .vpol = 0,
-    },
-    [EDID_MODE_1280x768_60Hz] = {
-        .name = "1280x768@60Hz",
-        .pixel_clock = 68300,
-        .refresh = 60,
-        .hactive = 1280,
-        .hback_porch = 120,
-        .hfront_porch = 32,
-        .hsync_len = 20,
-        .vactive = 768,
-        .vback_porch = 10,
-        .vfront_porch = 45,
-        .vsync_len = 12,
-    },
-    [EDID_MODE_1280x720_60Hz] = {
-        .name = "1280x720@60Hz",
-        .pixel_clock = 74300,
-        .refresh = 60,
-        .hactive = 1280,
-        .hback_porch = 370,
-        .hfront_porch = 110,
-        .hsync_len = 40,
-        .vactive = 720,
-        .vback_porch = 30,
-        .vfront_porch = 5,
-        .vsync_len = 20,
-    },
-};
+/* The known video-mode table (envie_known_modes) and the best-fit mode
+ * selector (video_modes_get_edid) live in video_modes.c / video_modes.h,
+ * vendored from the official Arduino_Video library. anx7625_dp_start indexes
+ * the shared envie_known_modes[] table declared there. */
 
 int anx7625_dp_start(uint8_t bus, const struct edid *edid, enum edid_modes mode, uint32_t fb_address)
 {
@@ -1300,6 +1208,8 @@ int config(uint8_t bus, struct edid *edid, struct display_timing *dt, uint32_t f
 
     uint32_t LTDC_PLL3M = HSE_VALUE / 1000000;
     uint32_t LTDC_PLL3N = dt->pixelclock / LTDC_FREQ_STEP;
+    /* Only PLL3R drives the LTDC pixel clock; PLL3P/PLL3Q are not routed to the
+     * LTDC but must still be valid dividers for HAL_RCCEx_PeriphCLKConfig(). */
     static uint32_t LTDC_PLL3P = 2;
     static uint32_t LTDC_PLL3Q = 7;
     uint32_t LTDC_PLL3R = 1000 / LTDC_FREQ_STEP;  // expected pixel clock
@@ -1315,7 +1225,7 @@ int config(uint8_t bus, struct edid *edid, struct display_timing *dt, uint32_t f
 
     DSI_PLLInitTypeDef dsiPllInit;
     DSI_PHY_TimerTypeDef dsiPhyInit;
-    RCC_PeriphCLKInitTypeDef PeriphClkInitStruct;
+    RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
     DSI_VidCfgTypeDef hdsivideo_handle;
 
     /** @brief Enable the LTDC clock */
@@ -1442,6 +1352,18 @@ int config(uint8_t bus, struct edid *edid, struct display_timing *dt, uint32_t f
     PeriphClkInitStruct.PLL3.PLL3P = LTDC_PLL3P;
     PeriphClkInitStruct.PLL3.PLL3Q = LTDC_PLL3Q;
     PeriphClkInitStruct.PLL3.PLL3R = LTDC_PLL3R;
+    /* PLL3 fractional/range fields MUST be initialised. The reference clock into
+     * PLL3 is HSE/PLL3M ~= 1 MHz (VCI range 1-2 MHz) and the VCO output is
+     * 150-420 MHz for every supported mode (medium VCO band). Above all,
+     * PLL3FRACN must be 0: RCCEx_PLL3_Config() always writes PLL3FRACN and
+     * enables the fractional divider, so leaving it as uninitialised stack
+     * garbage makes the VCO = 1MHz*(PLL3N + PLL3FRACN/8192), i.e. the LTDC pixel
+     * clock drifts off the integer value that the ANX7625 M/N PLL is programmed
+     * for. The DSI->DP bridge FIFO then slips and the whole image scrolls
+     * horizontally. */
+    PeriphClkInitStruct.PLL3.PLL3RGE = RCC_PLL3VCIRANGE_0;
+    PeriphClkInitStruct.PLL3.PLL3VCOSEL = RCC_PLL3VCOMEDIUM;
+    PeriphClkInitStruct.PLL3.PLL3FRACN = 0;
     HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct);
 
     /* Base address of LTDC registers to be set before calling De-Init */
@@ -1481,8 +1403,12 @@ int config(uint8_t bus, struct edid *edid, struct display_timing *dt, uint32_t f
 
     HAL_DSI_Refresh(&dsi);
 
+    /* Single-layer page flip: only LTDC layer 0 is used. Its framebuffer start
+     * address is moved between the two buffers on every flush (see
+     * drawCurrentFrameBuffer), while the layer stays permanently enabled.
+     * Layer 1 is never configured, so the LTDC only ever fetches one
+     * framebuffer (the LTDC force-reset above already leaves it disabled). */
     LayerInit(0, fb_address);
-    LayerInit(1, fb_address + (lcd_x_size * lcd_y_size * BYTES_PER_PIXEL));
 
     HAL_DSI_PatternGeneratorStop(&dsi);
 
@@ -1517,39 +1443,49 @@ static void LL_FillBuffer(uint32_t LayerIndex, void *pDst, uint32_t xSize, uint3
     }
 }
 
-DMA2D_HandleTypeDef *get_DMA2D(void)
-{
-    return &dma2d;
-}
-
 void drawCurrentFrameBuffer(void)
 {
-    int fb = pend_buffer++ % 2;
+    uint32_t back = getCurrentFrameBuffer();
+#if defined(CORE_CM7)
+    /* Clean (write back) the back buffer the CPU just drew so the LTDC, which
+     * scans SDRAM directly, sees coherent pixels. Clean by address (not the
+     * whole cache) to avoid evicting the MicroPython heap working set. */
+    SCB_CleanDCache_by_Addr((uint32_t *)back,
+                            (int32_t)(lcd_x_size * lcd_y_size * BYTES_PER_PIXEL));
+#endif
+    /* Single-layer page flip: keep LTDC layer 0 permanently enabled and only
+     * move its framebuffer start address, applied at the next vertical
+     * blanking. The previous code toggled LAYER_ENABLE/DISABLE on every flush,
+     * which forced the LTDC to refill its FIFO each time and dropped scanlines
+     * (horizontal streaks on changing content). Just moving the address keeps
+     * the FIFO running, exactly like the Zephyr STM32 LTDC driver. */
+    HAL_LTDC_SetAddress_NoReload(&ltdc, back, 0);
 
-    /* Enable current LTDC layer */
-    __HAL_LTDC_LAYER_ENABLE(&(ltdc), fb);
-    /* Disable active LTDC layer */
-    __HAL_LTDC_LAYER_DISABLE(&(ltdc), !fb);
-
-    /* LTDC reload request within next vertical blanking */
+    /* Apply the new address at the next vertical blanking (no tearing). */
     reloadLTDC_status = 0;
     HAL_LTDC_Reload(&ltdc, LTDC_SRCR_VBR);
 
     while (reloadLTDC_status == 0)
     {
-        /* Wait till reload takes effect */
+        /* Wait till the reload takes effect. */
         mdelay(1);
     }
+
+    /* The buffer we just showed is now the front buffer; the other one becomes
+     * the back buffer for the next frame. */
+    pend_buffer++;
 }
 
 uint32_t getCurrentFrameBuffer()
 {
-    return (ltdc.LayerCfg[pend_buffer % 2].FBStartAdress);
+    /* Back buffer (hidden): the one LTDC layer 0 is NOT currently showing. */
+    return (pend_buffer % 2 == 0) ? framebuffer_address_0 : framebuffer_address_1;
 }
 
 uint32_t getActiveFrameBuffer()
 {
-    return (ltdc.LayerCfg[(pend_buffer + 1) % 2].FBStartAdress);
+    /* Front buffer (visible): the one LTDC layer 0 is currently showing. */
+    return (pend_buffer % 2 == 0) ? framebuffer_address_1 : framebuffer_address_0;
 }
 
 uint32_t getXSize()
@@ -1564,18 +1500,13 @@ uint32_t getYSize()
 
 void Clear(uint32_t Color)
 {
-    /* Clear the LCD */
-    LL_FillBuffer(pend_buffer % 2, (uint32_t *)(ltdc.LayerCfg[pend_buffer % 2].FBStartAdress), lcd_x_size, lcd_y_size, 0, Color);
-}
-
-void FillArea(void *pDst, uint32_t xSize, uint32_t ySize, uint32_t ColorMode)
-{
-    LL_FillBuffer(pend_buffer % 2, pDst, xSize, ySize, lcd_x_size - xSize, ColorMode);
+    /* Clear the back buffer. */
+    LL_FillBuffer(pend_buffer % 2, (uint32_t *)getCurrentFrameBuffer(), lcd_x_size, lcd_y_size, 0, Color);
 }
 
 void DrawImage(void *pSrc, void *pDst, uint32_t xSize, uint32_t ySize, uint32_t ColorMode)
 {
-#if defined(__CORTEX_M7)
+#if defined(CORE_CM7)
     SCB_CleanInvalidateDCache();
     SCB_InvalidateICache();
 #endif
@@ -1586,7 +1517,7 @@ void DrawImage(void *pSrc, void *pDst, uint32_t xSize, uint32_t ySize, uint32_t 
 
     if (pDst == NULL)
     {
-        pDst = (uint32_t *)(ltdc.LayerCfg[pend_buffer % 2].FBStartAdress);
+        pDst = (uint32_t *)getCurrentFrameBuffer();
     }
 
     /* Foreground Configuration */

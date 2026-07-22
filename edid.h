@@ -25,8 +25,8 @@ enum edid_modes
 {
     EDID_MODE_640x480_60Hz,
     EDID_MODE_720x480_60Hz,
-    EDID_MODE_480x800_60Hz,
     EDID_MODE_800x600_59Hz,
+    EDID_MODE_480x800_60Hz,
     EDID_MODE_1024x768_60Hz,
     EDID_MODE_1280x768_60Hz,
     EDID_MODE_1280x720_60Hz,
@@ -57,23 +57,8 @@ struct edid_mode
     unsigned int y_mm;
 };
 
-struct envie_edid_mode
-{
-    const char *name;
-    unsigned int pixel_clock;
-    unsigned int refresh;
-    unsigned int hactive;
-    unsigned int hback_porch;
-    unsigned int hfront_porch;
-    unsigned int hsync_len;
-    unsigned int vactive;
-    unsigned int vsync_len;
-    unsigned int vback_porch;
-    unsigned int vfront_porch;
-    unsigned int voffset;
-    unsigned int hpol : 1;
-    unsigned int vpol : 1;
-};
+/* struct envie_edid_mode is defined in video_modes.h (vendored from the
+ * official Arduino_Video library). */
 
 /* structure for communicating EDID information from a raw EDID block to
  * higher level functions.

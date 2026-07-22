@@ -375,7 +375,6 @@ int anx7625_wait_hpd_event(uint8_t bus);
 int config(uint8_t bus, struct edid *edid, struct display_timing *dt, uint32_t fb_address);
 void Clear(uint32_t color);
 void DrawImage(void *pSrc, void *pDst, uint32_t xSize, uint32_t ySize, uint32_t ColorMode);
-void FillArea(void *pDst, uint32_t xSize, uint32_t ySize, uint32_t ColorMode);
 uint32_t getNextFrameBuffer();
 uint32_t getXSize();
 uint32_t getYSize();

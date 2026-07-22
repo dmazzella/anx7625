@@ -39,10 +39,12 @@
 #include "py/objtype.h"
 #include "py/objstr.h"
 #include "py/objint.h"
+#include "py/objarray.h"
 #include "pin.h"
 #include "extmod/modmachine.h"
 
 #include "anx7625.h"
+#include "video_modes.h"
 
 const mp_obj_type_t mp_anx7625_type;
 mp_anx7625_t anx7625_object = {0};
@@ -118,6 +120,10 @@ static mp_obj_t mp_anx7625_flush(mp_obj_t self_obj)
 {
     mp_anx7625_t *self = MP_OBJ_TO_PTR(self_obj);
     (void)self;
+    // Present the back buffer the user drew into: drawCurrentFrameBuffer()
+    // cleans its D-cache, then flips the single LTDC layer's start address to
+    // it at the next vertical blank (true double buffering, no copy, no
+    // tearing).
     drawCurrentFrameBuffer();
     return mp_const_none;
 }
@@ -128,7 +134,7 @@ static const mp_rom_map_elem_t mp_anx7625_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_clear), MP_ROM_PTR(&mp_anx7625_clear_obj)},
     {MP_ROM_QSTR(MP_QSTR_flush), MP_ROM_PTR(&mp_anx7625_flush_obj)},
     {MP_ROM_QSTR(MP_QSTR_image), MP_ROM_PTR(&mp_anx7625_image_obj)},
-    {MP_ROM_QSTR(MP_QSTR_buffer), MP_ROM_PTR(mp_const_none)},
+    {MP_ROM_QSTR(MP_QSTR_framebuffer), MP_ROM_PTR(mp_const_none)},
     {MP_ROM_QSTR(MP_QSTR_width), MP_ROM_PTR(mp_const_none)},
     {MP_ROM_QSTR(MP_QSTR_height), MP_ROM_PTR(mp_const_none)},
 };
@@ -197,6 +203,27 @@ static mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
 
     mp_int_t background_color = args[ARG_background_color].u_int;
 
+    // Select the best-fit known video mode for the requested resolution. The
+    // selector returns the smallest known mode able to contain width x height
+    // (and caps the pixel clock for the STM32H747). When a known mode matches,
+    // adopt its real resolution: the best fit can be larger than requested
+    // (e.g. 1024x600 -> 1024x768).
+    enum edid_modes mode = video_modes_get_edid(width, height);
+    if (mode != EDID_MODE_AUTO)
+    {
+        width = envie_known_modes[mode].hactive;
+        height = envie_known_modes[mode].vactive;
+    }
+
+    // The LTDC layer is double-buffered: config() places framebuffer 0 at the
+    // start of the buffer and framebuffer 1 immediately after, each
+    // width x height RGB565 (2 bytes/pixel). The caller's buffer must hold both.
+    size_t required = (size_t)width * (size_t)height * 2 * 2;
+    if (bufinfo.len < required)
+    {
+        mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("buffer too small: need %u bytes for %ux%u (RGB565, double-buffered)"), (unsigned int)required, (unsigned int)width, (unsigned int)height);
+    }
+
     anx7625_obj->base.type = &mp_anx7625_type;
     anx7625_obj->i2c_obj = i2c_obj;
     anx7625_obj->pin_video_on_obj = pin_video_on_obj;
@@ -208,7 +235,7 @@ static mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
     anx7625_obj->height = height;
     anx7625_obj->timeout = timeout;
     anx7625_obj->background_color = background_color;
-    anx7625_obj->mode = video_modes_search_edid(anx7625_obj->width, anx7625_obj->height);
+    anx7625_obj->mode = mode;
 
     /* video on */
     mp_hal_pin_config(mp_hal_get_pin_obj(anx7625_obj->pin_video_on_obj), MP_HAL_PIN_MODE_OUTPUT, MP_HAL_PIN_PULL_NONE, 0);
@@ -259,9 +286,14 @@ static void mp_anx7625_attr(mp_obj_t obj, qstr attr, mp_obj_t *dest)
         mp_map_elem_t *elem = mp_map_lookup(locals_map, MP_OBJ_NEW_QSTR(attr), MP_MAP_LOOKUP);
         if (elem != NULL)
         {
-            if (attr == MP_QSTR_buffer)
+            if (attr == MP_QSTR_framebuffer)
             {
-                dest[0] = self->buffer_obj;
+                // The hidden back buffer to draw the next frame into: one of
+                // the two halves of the allocation passed to the constructor,
+                // alternating on every flush(). Wrap it in a framebuf, draw,
+                // then call flush().
+                size_t nbytes = (size_t)self->width * (size_t)self->height * 2;
+                dest[0] = mp_obj_new_memoryview('B' | MP_OBJ_ARRAY_TYPECODE_FLAG_RW, nbytes, (void *)getCurrentFrameBuffer());
                 return;
             }
             if (attr == MP_QSTR_width)

@@ -100,45 +100,84 @@ import framebuf
 import machine
 import time
 
+BG = 0x0000
+WHITE = 0xFFFF
+CYAN = 0x177A
+
 
 def main():
     i2c = machine.I2C(1, freq=400_000)
     video_on = machine.Pin.cpu.K2
     video_rst = machine.Pin.cpu.J3
     otg_on = machine.Pin.cpu.J6
-    mode = _anx7625.MODE_720x480_60Hz
-    width = 720
-    height = 480
-    buffer = bytearray(width * height * 2)
+    width = 800
+    height = 600
+    # RGB565, double-buffered: the driver uses two framebuffers, so allocate
+    # width * height * 2 * 2 bytes for the selected mode.
+    buffer = bytearray(width * height * 2 * 2)
 
     anx = _anx7625.ANX7625(
-        i2c, video_on, video_rst, otg_on, mode, buffer, width=width, height=height
+        i2c, video_on, video_rst, otg_on, buffer, width=width, height=height
     )
 
-    fbuf = framebuf.FrameBuffer(anx.buffer, anx.width, anx.height, framebuf.RGB565)
-    fbuf.fill(0x3433)
-
-    fbuf.text("ANX7625 Micropython porting", 80, 20, 0xFFFF)
-
-    for i in range(5):
-        fbuf.rect(80 + i * 30, 40 + i * 20, 60, 60, 0xECAE, True)
-
-    fbuf.fill_rect(1, 1, 15, 15, 0xFFFF)
-    fbuf.vline(4, 4, 12, 0)
-    fbuf.vline(8, 1, 12, 0)
-    fbuf.vline(12, 4, 12, 0)
-    fbuf.vline(14, 13, 2, 0)
-
+    # Simple game loop: redraw the whole frame into the hidden buffer
+    # (anx.framebuffer, which alternates on every flush) and present it with
+    # anx.flush(). flush() cleans the D-cache for the buffer you drew and flips
+    # it in at the next vertical blank, so drawing is coherent and tear-free.
+    x = 0
     while True:
-        for i in range(5):
-            fbuf.rect(80 + i * 30, 140 + i * 20, 60, 60, 0x177A, True)
+        fb = framebuf.FrameBuffer(
+            anx.framebuffer, anx.width, anx.height, framebuf.RGB565
+        )
+        fb.fill(BG)
+        fb.text("ANX7625 MicroPython", 20, 20, WHITE)
+        fb.fill_rect(x, anx.height // 2 - 40, 80, 80, CYAN)
+        anx.flush()
 
-        fbuf.vline(4, 4, 12, 0)
-        fbuf.vline(8, 1, 12, 0)
-        fbuf.vline(12, 4, 12, 0)
-        fbuf.vline(14, 13, 2, 0)
+        x = (x + 8) % (anx.width - 80)
+        time.sleep_ms(16)
 
 
 if __name__ == "__main__":
     main()
 ```
+
+## Video modes
+
+The requested `width` / `height` are matched against a table of known modes
+(`video_modes.c`, vendored from the official
+[Arduino_Video](https://github.com/arduino-libraries/Arduino_Video) library).
+The driver selects the **smallest supported mode that can contain** the
+requested resolution, and caps the pixel clock at ~58 MHz (STM32H747 limit:
+modes above 1024x768 are remapped to 1024x768).
+
+- If you request an exact known mode (e.g. `720x480`, `800x600`, `1024x768`),
+  that mode is used as-is.
+- If you request a non-exact resolution (e.g. `1024x600`), the next larger mode
+  is selected (`1024x768`) and reported back via `anx.width` / `anx.height`.
+
+The framebuffer is **double-buffered RGB565**, so the `buffer` you pass must be
+at least `width * height * 2 * 2` bytes for the *selected* mode. If it is too
+small, the constructor raises `ValueError` reporting the exact number of bytes
+required.
+
+Each frame, draw into `anx.framebuffer` — the hidden framebuffer, one of the two
+halves of the allocation you passed to the constructor, which alternates on
+every flush — then call `anx.flush()` to present it at the next vertical blank.
+You can redraw the whole frame every iteration (a normal game loop) or update
+only what changed; both work. `flush()` is a single-layer page flip: it keeps
+the LTDC layer permanently enabled and just moves its start address at the
+vertical blank (no copy, no tearing), and it cleans the D-cache for the buffer
+you drew so the CPU's drawing is coherent with the LTDC. `anx.image(buf,
+width=, height=, x=, y=)` blits an external RGB565 buffer straight into the
+visible framebuffer.
+
+The framebuffer lives in the external SDRAM that also holds the MicroPython
+heap. The CPU draws through its data cache while the LTDC reads SDRAM directly,
+so `flush()` writes the drawn buffer back to SDRAM (D-cache clean) before
+presenting it — otherwise freshly drawn pixels would linger in the cache and the
+display would show stale data. This is handled for you, and every supported mode
+up to `1024x768` renders cleanly (a full-frame redraw at 800x600 is smooth).
+
+Supported modes: 640x480, 720x480, 800x600, 480x800, 1024x768 (higher modes are
+remapped to 1024x768).
