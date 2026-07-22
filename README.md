@@ -1,8 +1,5 @@
 # Micropython porting of video primitives for Portenta H7 via USBC (to HDMI adapter)
 
-> [!WARNING] 
-> Working in progress, help are welcome!
-
 ## How to build
 
 > [!IMPORTANT]
