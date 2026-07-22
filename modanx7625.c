@@ -86,7 +86,9 @@ static mp_obj_t mp_anx7625_image(size_t n_args, const mp_obj_t *args, mp_map_t *
     mp_arg_parse_all(n_args - 1, args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, vals);
 
     mp_buffer_info_t bufinfo;
-    mp_get_buffer_raise(vals[ARG_buffer].u_obj, &bufinfo, MP_BUFFER_RW);
+    // The image source is only read (blitted from) by DMA2D, so accept
+    // read-only buffers too (e.g. an LVGL flush px_map) - avoids a copy.
+    mp_get_buffer_raise(vals[ARG_buffer].u_obj, &bufinfo, MP_BUFFER_READ);
 
     mp_int_t width = vals[ARG_width].u_int;
     mp_int_t height = vals[ARG_height].u_int;
