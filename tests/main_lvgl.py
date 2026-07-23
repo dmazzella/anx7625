@@ -142,17 +142,56 @@ def run_lvgl(anx):
     val_label.set_style_text_color(TEXT, 0)
     val_label.align(lv.ALIGN.TOP_RIGHT, -40, 210)
 
+    # --- bottom-left: calendar (July 2026, today highlighted) ---
+    cal_label = lv.label(scr)
+    cal_label.set_text("Calendar")
+    cal_label.set_style_text_color(TEXT, 0)
+    cal_label.align(lv.ALIGN.TOP_LEFT, 40, 368)
+
+    cal = lv.calendar(scr)
+    cal.set_size(200, 200)
+    cal.align(lv.ALIGN.TOP_LEFT, 40, 388)
+    cal.set_today_date(2026, 7, 23)
+    cal.set_month_shown(2026, 7)
+
+    # --- bottom-right: table (last row shows the live animated value) ---
+    tbl_label = lv.label(scr)
+    tbl_label.set_text("Table")
+    tbl_label.set_style_text_color(TEXT, 0)
+    tbl_label.align(lv.ALIGN.TOP_RIGHT, -40, 290)
+
+    tbl = lv.table(scr)
+    tbl.set_column_count(2)
+    tbl.set_row_count(4)
+    tbl.set_column_width(0, 120)
+    tbl.set_column_width(1, 90)
+    tbl.set_cell_value(0, 0, "Signal")
+    tbl.set_cell_value(0, 1, "Value")
+    tbl.set_cell_value(1, 0, "Voltage")
+    tbl.set_cell_value(1, 1, "3.30 V")
+    tbl.set_cell_value(2, 0, "Current")
+    tbl.set_cell_value(2, 1, "120 mA")
+    tbl.set_cell_value(3, 0, "Load")
+    tbl.set_cell_value(3, 1, "0%")
+    tbl.align(lv.ALIGN.TOP_RIGHT, -40, 312)
+
     # ---- Event loop: drive LVGL time + tasks, self-animate widgets, count FPS.
     value = 0
     step = 1
     frames = 0
     fps_t0 = time.ticks_ms()
+    blink_t0 = fps_t0
     prev = fps_t0
     while True:
         now = time.ticks_ms()
         lv.tick_inc(time.ticks_diff(now, prev))
         prev = now
         lv.timer_handler()
+
+        # blink the LED ~1 Hz (toggle on/off every 500 ms)
+        if time.ticks_diff(now, blink_t0) >= 500:
+            led.toggle()
+            blink_t0 = now
 
         value += step
         if value >= 100 or value <= 0:
@@ -163,6 +202,7 @@ def run_lvgl(anx):
         arc.set_value(value)
         val_label.set_text("value %d%%" % value)
         arc_label.set_text("%d%%" % value)
+        tbl.set_cell_value(3, 1, "%d%%" % value)
 
         frames += 1
         if time.ticks_diff(time.ticks_ms(), fps_t0) >= 1000:
