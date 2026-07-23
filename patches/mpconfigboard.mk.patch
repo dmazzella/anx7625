@@ -1,9 +1,11 @@
 diff --git a/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.mk b/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.mk
-index e5b48d064..0b32c7a31 100644
+index 50c6706dc..79218835c 100644
 --- a/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.mk
 +++ b/ports/stm32/boards/ARDUINO_PORTENTA_H7/mpconfigboard.mk
-@@ -25,3 +25,4 @@ MICROPY_PY_USSL = 1
- MICROPY_SSL_MBEDTLS = 1
- 
+@@ -32,3 +32,5 @@ GIT_SUBMODULES += $(ARDUINO_LIB_DIR)
  FROZEN_MANIFEST = $(BOARD_DIR)/manifest.py
-+USER_C_MODULES ?= $(BOARD_DIR)/modules
+ MICROPY_MANIFEST_ARDUINO_LIB_DIR = $(TOP)/$(ARDUINO_LIB_DIR)
+ MBEDTLS_CONFIG_FILE = '"$(BOARD_DIR)/mbedtls_config_board.h"'
++
++USER_C_MODULES=$(BOARD_DIR)/modules
+\ No newline at end of file
