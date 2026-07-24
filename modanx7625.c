@@ -158,6 +158,8 @@ static mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
         ARG_height,
         ARG_timeout,
         ARG_background_color,
+        ARG_hpd_retries,
+        ARG_hpd_timeout,
     };
 
     static const mp_arg_t allowed_args[] = {
@@ -170,6 +172,8 @@ static mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
         {MP_QSTR_height, MP_ARG_INT | MP_ARG_KW_ONLY, {.u_int = 480}},
         {MP_QSTR_timeout, MP_ARG_INT | MP_ARG_KW_ONLY, {.u_int = 500}},
         {MP_QSTR_background_color, MP_ARG_INT | MP_ARG_KW_ONLY, {.u_int = 0}},
+        {MP_QSTR_hpd_retries, MP_ARG_INT | MP_ARG_KW_ONLY, {.u_int = 3}},
+        {MP_QSTR_hpd_timeout, MP_ARG_INT | MP_ARG_KW_ONLY, {.u_int = 20000}},
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -204,6 +208,11 @@ static mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
     mp_int_t timeout = args[ARG_timeout].u_int;
 
     mp_int_t background_color = args[ARG_background_color].u_int;
+
+    // HPD retry: number of power-on + HPD-wait attempts, and the per-attempt HPD
+    // wait in milliseconds (polled every 10 ms).
+    mp_int_t hpd_retries = args[ARG_hpd_retries].u_int;
+    mp_int_t hpd_timeout = args[ARG_hpd_timeout].u_int;
 
     // Select the best-fit known video mode for the requested resolution. The
     // selector returns the smallest known mode able to contain width x height
@@ -257,13 +266,14 @@ static mp_obj_t mp_anx7625_make_new(const mp_obj_type_t *type, size_t n_args, si
     mp_hal_pin_config(mp_hal_get_pin_obj(anx7625_obj->pin_otg_on_obj), MP_HAL_PIN_MODE_INPUT, MP_HAL_PIN_PULL_UP, 0);
     mp_hal_pin_config_speed(mp_hal_get_pin_obj(anx7625_obj->pin_otg_on_obj), MP_HAL_PIN_SPEED_HIGH);
 
-    int ret = -1;
-    if ((ret = anx7625_init(0)) < 0)
+    // Power on + wait for HPD, retrying (power-cycling) up to hpd_retries times;
+    // each attempt polls HPD for hpd_timeout ms (10 ms per poll).
+    int ret = anx7625_init_and_wait_hpd(0, hpd_retries, hpd_timeout / 10);
+    if (ret == -2)
     {
         mp_raise_TypeError(MP_ERROR_TEXT("anx7625_init failed."));
     }
-
-    if ((ret = anx7625_wait_hpd_event(0)) < 0)
+    if (ret < 0)
     {
         mp_raise_TypeError(MP_ERROR_TEXT("anx7625_wait_hpd_event failed."));
     }

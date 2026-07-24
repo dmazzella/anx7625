@@ -1083,11 +1083,11 @@ int anx7625_init(uint8_t bus)
     return 0;
 }
 
-int anx7625_wait_hpd_event(uint8_t bus)
+int anx7625_wait_hpd_event(uint8_t bus, int retry_count)
 {
     ANXINFO("Waiting for hdmi hot plug event...\n");
 
-    int retry_hpd_change = 10000;
+    int retry_hpd_change = retry_count;
     while (--retry_hpd_change)
     {
         mdelay(10);
@@ -1100,6 +1100,32 @@ int anx7625_wait_hpd_event(uint8_t bus)
 
     ANXERROR("Timed out to detect HPD change on bus %d.\n", bus);
     return -1;
+}
+
+// Power on the anx7625 and wait for the HDMI hot-plug (HPD) event, retrying the
+// whole power-on + HPD wait up to "retries" times. Each retry power-cycles the
+// bridge (anx7625_init), which re-triggers HPD detection. "per_attempt_count"
+// is the number of 10 ms HPD polls per attempt. Returns 0 on success, -1 if HPD
+// never asserted, or -2 if the power-on itself never succeeded.
+int anx7625_init_and_wait_hpd(uint8_t bus, int retries, int per_attempt_count)
+{
+    if (retries < 1)
+        retries = 1;
+    if (per_attempt_count < 2)
+        per_attempt_count = 2;
+
+    int inited = 0;
+    for (int attempt = 1; attempt <= retries; attempt++)
+    {
+        if (attempt > 1)
+            ANXINFO("ANX7625 HPD retry %d/%d (power-cycling)...\n", attempt, retries);
+        if (anx7625_init(bus) < 0)
+            continue; // power-on failed, try again
+        inited = 1;
+        if (anx7625_wait_hpd_event(bus, per_attempt_count) >= 0)
+            return 0; // HPD detected
+    }
+    return inited ? -1 : -2;
 }
 
 int anx7625_read_system_status(uint8_t bus, uint8_t *sys_status)
