@@ -12,7 +12,8 @@
 #define printk(x, ...) printf(__VA_ARGS__)
 #define console_log_level(x) (1)
 #define CONFIG(x) (0)
-#define mdelay(x) mp_hal_delay_us(x * 1000)
+// mdelay now pumps the event loop (interruptible by Ctrl+C); use mp_hal_delay_us() for atomic waits.
+#define mdelay(x) mp_hal_delay_ms(x)
 #define die(...)
 #ifndef MAX
 #define MAX(a, b) (((a) > (b)) ? (a) : (b)) /*!< Return the maximum of the 2 values     */
