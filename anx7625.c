@@ -1533,8 +1533,12 @@ void Clear(uint32_t Color)
 void DrawImage(void *pSrc, void *pDst, uint32_t xSize, uint32_t ySize, uint32_t ColorMode)
 {
 #if defined(CORE_CM7)
-    SCB_CleanInvalidateDCache();
-    SCB_InvalidateICache();
+    /* Write back only the RGB565 source the CPU just drew (not the whole cache)
+     * so the DMA2D reads current pixels. The destination is scanned out of SDRAM
+     * by the LTDC and never read through the CPU cache, so it needs no cache op.
+     * A whole-cache clean+invalidate here would force the MicroPython heap to
+     * refill from SDRAM, adding the very traffic that starves the LTDC FIFO. */
+    SCB_CleanDCache_by_Addr((uint32_t *)pSrc, (int32_t)(xSize * ySize * 2));
 #endif
     /* Configure the DMA2D Mode, Color Mode and output offset */
     dma2d.Init.Mode = DMA2D_M2M_PFC;

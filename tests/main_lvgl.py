@@ -42,10 +42,13 @@ def run_lvgl(anx):
     # LVGL is auto-initialized by the binding on import (its mp_lv_init_gc calls
     # lv_init), so there is no lv.init() to call at module level.
 
-    # Partial draw buffer: LVGL renders the screen in horizontal chunks of ~100
-    # lines; the flush callback blits each dirty area into the ANX7625 visible
-    # framebuffer with a DMA2D copy (anx.image), which the LTDC scans out.
-    draw_buf = bytearray(anx.width * 100 * 2)  # RGB565, 2 bytes/pixel
+    # Partial draw buffer in internal AXI-SRAM (anx.draw_buffer), not the SDRAM
+    # heap: the flush blit is then SRAM->SDRAM, cutting the SDRAM traffic that
+    # contends with the LTDC scan-out. Required to avoid flicker at 1024x768 --
+    # a plain bytearray (SDRAM) still flickers even with the surgical cache clean.
+
+    # draw_buf = bytearray(anx.width * 100 * 2)  # RGB565, 2 bytes/pixel
+    draw_buf = anx.draw_buffer
 
     disp = lv.display_create(anx.width, anx.height)
     try:

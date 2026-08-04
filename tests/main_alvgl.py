@@ -49,10 +49,13 @@ async def run_lvgl(anx):
     # LVGL is auto-initialized by the binding on import (its mp_lv_init_gc calls
     # lv_init), so there is no lv.init() to call at module level.
 
-    # Partial draw buffer: LVGL renders the screen in horizontal chunks of ~100
-    # lines; the flush callback blits each dirty area into the ANX7625 visible
-    # framebuffer with a DMA2D copy (anx.image), which the LTDC scans out.
-    draw_buf = bytearray(anx.width * 100 * 2)  # RGB565, 2 bytes/pixel
+    # Partial draw buffer in internal AXI-SRAM (anx.draw_buffer), not the SDRAM
+    # heap: the flush blit is then SRAM->SDRAM, cutting the SDRAM traffic that
+    # contends with the LTDC scan-out. Required to avoid flicker at 1024x768 --
+    # a plain bytearray (SDRAM) still flickers even with the surgical cache clean.
+
+    # draw_buf = bytearray(anx.width * 100 * 2)  # RGB565, 2 bytes/pixel
+    draw_buf = anx.draw_buffer
 
     disp = lv.display_create(anx.width, anx.height)
     try:
@@ -199,7 +202,7 @@ async def run_lvgl(anx):
                 fps_label.set_text("%d fps" % frames)
                 frames = 0
                 fps_t0 = time.ticks_ms()
-            await asyncio.sleep_ms(16)
+            await asyncio.sleep_ms(1)
 
     async def animate():
         # Self-animate the value-driven widgets (no input device on HDMI-out).
@@ -216,7 +219,7 @@ async def run_lvgl(anx):
             val_label.set_text("value %d%%" % value)
             arc_label.set_text("%d%%" % value)
             tbl.set_cell_value(3, 1, "%d%%" % value)
-            await asyncio.sleep_ms(16)
+            await asyncio.sleep_ms(1)
 
     async def blink():
         # Blink the LED ~1 Hz (toggle on/off every 500 ms).
@@ -235,8 +238,8 @@ def main():
     video_rst = machine.Pin.cpu.J3
     otg_on = machine.Pin.cpu.J6
 
-    width = 800
-    height = 600
+    width = 1024
+    height = 768
     # RGB565 double-buffered allocation required by the driver (2*2 bytes/pixel).
     anx_buffer = bytearray(width * height * 2 * 2)
     anx = _anx7625.ANX7625(

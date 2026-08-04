@@ -3,7 +3,7 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2023 Damiano Mazzella
+ * Copyright (c) 2026 Damiano Mazzella
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -49,6 +49,14 @@
 const mp_obj_type_t mp_anx7625_type;
 mp_anx7625_t anx7625_object = {0};
 mp_anx7625_t *anx7625_obj = &anx7625_object;
+
+// LVGL partial draw buffer, placed in D1 AXI-SRAM (internal, DMA2D-accessible)
+// rather than the SDRAM heap. Keeping it out of SDRAM makes each flush blit
+// SRAM->SDRAM instead of SDRAM->SDRAM, which removes the SDRAM traffic that
+// otherwise contends with (and starves) the LTDC scan-out FIFO at 1024x768.
+// Size only trades flush granularity for RAM (the fix needs it in SRAM, not big).
+#define ANX_DRAW_BUFFER_BYTES (16 * 1024)
+static uint8_t anx7625_draw_buffer[ANX_DRAW_BUFFER_BYTES] __attribute__((aligned(32)));
 
 static bool mp_obj_is_machine_i2c(mp_obj_t i2c)
 {
@@ -137,6 +145,7 @@ static const mp_rom_map_elem_t mp_anx7625_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_flush), MP_ROM_PTR(&mp_anx7625_flush_obj)},
     {MP_ROM_QSTR(MP_QSTR_image), MP_ROM_PTR(&mp_anx7625_image_obj)},
     {MP_ROM_QSTR(MP_QSTR_framebuffer), MP_ROM_PTR(mp_const_none)},
+    {MP_ROM_QSTR(MP_QSTR_draw_buffer), MP_ROM_PTR(mp_const_none)},
     {MP_ROM_QSTR(MP_QSTR_width), MP_ROM_PTR(mp_const_none)},
     {MP_ROM_QSTR(MP_QSTR_height), MP_ROM_PTR(mp_const_none)},
 };
@@ -306,6 +315,13 @@ static void mp_anx7625_attr(mp_obj_t obj, qstr attr, mp_obj_t *dest)
                 // then call flush().
                 size_t nbytes = (size_t)self->width * (size_t)self->height * 2;
                 dest[0] = mp_obj_new_memoryview('B' | MP_OBJ_ARRAY_TYPECODE_FLAG_RW, nbytes, (void *)getCurrentFrameBuffer());
+                return;
+            }
+            if (attr == MP_QSTR_draw_buffer)
+            {
+                // Internal AXI-SRAM LVGL partial draw buffer (see
+                // anx7625_draw_buffer): pass to display.set_buffers().
+                dest[0] = mp_obj_new_memoryview('B' | MP_OBJ_ARRAY_TYPECODE_FLAG_RW, sizeof(anx7625_draw_buffer), (void *)anx7625_draw_buffer);
                 return;
             }
             if (attr == MP_QSTR_width)
